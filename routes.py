@@ -149,6 +149,23 @@ async def create_job_with_logo(
     Create a new job posting with logo upload (multipart/form-data)
     Description, responsibilities, soft_skills, and qualifications should be JSON strings
     """
+    def parse_list_field(field_name: str, value: str) -> List[str]:
+        """
+        Accepts JSON array strings or plain text; returns a list of strings.
+        """
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                return parsed
+            if isinstance(parsed, str):
+                return [parsed]
+            raise HTTPException(status_code=400, detail=f"{field_name} must be a JSON array or string")
+        except json.JSONDecodeError:
+            raw = value.strip()
+            if not raw:
+                raise HTTPException(status_code=400, detail=f"{field_name} cannot be empty")
+            return [raw]
+
     # Handle logo upload
     logo_url = None
     if logo:
@@ -160,14 +177,11 @@ async def create_job_with_logo(
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
     
-    # Parse JSON strings
-    try:
-        description_list = json.loads(description)
-        responsibilities_list = json.loads(responsibilities)
-        soft_skills_list = json.loads(soft_skills)
-        qualifications_list = json.loads(qualifications)
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON format: {str(e)}")
+    # Parse JSON strings or plain text
+    description_list = parse_list_field("description", description)
+    responsibilities_list = parse_list_field("responsibilities", responsibilities)
+    soft_skills_list = parse_list_field("soft_skills", soft_skills)
+    qualifications_list = parse_list_field("qualifications", qualifications)
     
     # Create job
     new_job = Job(
